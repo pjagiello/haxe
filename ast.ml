@@ -189,6 +189,7 @@ type keyword =
 	| New
 	| This
 	| Throw
+	| Yield
 	| Extern
 	| Enum
 	| In
@@ -330,6 +331,7 @@ and expr_def =
 	| EContinue
 	| EUntyped of expr
 	| EThrow of expr
+	| EYield of expr
 	| ECast of expr * complex_type option
 	| EDisplay of expr * bool
 	| EDisplayNew of type_path
@@ -527,6 +529,7 @@ let s_keyword = function
 	| New -> "new"
 	| This -> "this"
 	| Throw -> "throw"
+	| Yield -> "yield"
 	| Extern -> "extern"
 	| Enum -> "enum"
 	| In -> "in"
@@ -711,6 +714,7 @@ let map_expr loop (e,p) =
 	| EContinue -> EContinue
 	| EUntyped e -> EUntyped (loop e)
 	| EThrow e -> EThrow (loop e)
+	| EYield e -> EYield (loop e)
 	| ECast (e,t) -> ECast (loop e,opt ctype t)
 	| EDisplay (e,f) -> EDisplay (loop e,f)
 	| EDisplayNew t -> EDisplayNew (tpath t)

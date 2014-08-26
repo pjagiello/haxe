@@ -561,6 +561,9 @@ and gen_expr ctx e =
 	| TThrow e ->
 		spr ctx "throw ";
 		gen_value ctx e;
+	| TYield e ->
+		spr ctx "yield ";
+		gen_value ctx e;
 	| TVar (v,eo) ->
 		spr ctx "var ";
 		check_var_declaration v;
@@ -811,6 +814,7 @@ and gen_value ctx e =
 	| TCall (e,el) ->
 		gen_call ctx e el true
 	| TReturn _
+	| TYield _ (* ??? *)
 	| TBreak
 	| TContinue ->
 		unsupported e.epos
@@ -1240,6 +1244,8 @@ let generate com =
 		in loop parts "";
 	)) exposed;
 
+	(* print ctx "LOLOLOLOL" ; *)
+	
 	if ctx.js_modern then begin
 		(* Additional ES5 strict mode keywords. *)
 		List.iter (fun s -> Hashtbl.replace kwds s ()) [ "arguments"; "eval" ];

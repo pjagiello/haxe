@@ -34,7 +34,7 @@ let has_side_effect e =
 		match e.eexpr with
 		| TConst _ | TLocal _ | TField _ | TTypeExpr _ | TFunction _ -> ()
 		| TPatMatch _ | TNew _ | TCall _ | TBinop ((OpAssignOp _ | OpAssign),_,_) | TUnop ((Increment|Decrement),_,_) -> raise Exit
-		| TReturn _ | TBreak | TContinue | TThrow _ | TCast (_,Some _) -> raise Exit
+		| TReturn _ | TBreak | TContinue | TThrow _ | TYield _ | TCast (_,Some _) -> raise Exit
 		| TArray _ | TEnumParameter _ | TCast (_,None) | TBinop _ | TUnop _ | TParenthesis _ | TMeta _ | TWhile _ | TFor _ | TIf _ | TTry _ | TSwitch _ | TArrayDecl _ | TVar _ | TBlock _ | TObjectDecl _ -> Type.iter loop e
 	in
 	try
@@ -765,7 +765,7 @@ let rec need_parent e =
 	match e.eexpr with
 	| TConst _ | TLocal _ | TArray _ | TField _ | TEnumParameter _ | TParenthesis _ | TMeta _ | TCall _ | TNew _ | TTypeExpr _ | TObjectDecl _ | TArrayDecl _ -> false
 	| TCast (e,None) -> need_parent e
-	| TCast _ | TThrow _ | TReturn _ | TTry _ | TPatMatch _ | TSwitch _ | TFor _ | TIf _ | TWhile _ | TBinop _ | TContinue | TBreak
+	| TCast _ | TThrow _ | TYield _ | TReturn _ | TTry _ | TPatMatch _ | TSwitch _ | TFor _ | TIf _ | TWhile _ | TBinop _ | TContinue | TBreak
 	| TBlock _ | TVar _ | TFunction _ | TUnop _ -> true
 
 let sanitize_expr com e =

@@ -414,6 +414,8 @@ let reify in_macro =
 			expr "EUntyped" [loop e]
 		| EThrow e ->
 			expr "EThrow" [loop e]
+		| EYield e ->
+			expr "EYield" [loop e]
 		| ECast (e,ct) ->
 			expr "ECast" [loop e; to_opt to_ctype ct p]
 		| EDisplay (e,flag) ->
@@ -1147,6 +1149,7 @@ and expr = parser
 			| [< >] -> serror())
 		| [< e = secure_expr >] -> expr_next (ECast (e,None),punion p1 (pos e)) s)
 	| [< '(Kwd Throw,p); e = expr >] -> (EThrow e,p)
+	| [< '(Kwd Yield,p); e = expr >] -> (EYield e,p)
 	| [< '(Kwd New,p1); t = parse_type_path; '(POpen,p); s >] ->
 		if is_resuming p then display (EDisplayNew t,punion p1 p);
 		(match s with parser

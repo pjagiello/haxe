@@ -1295,7 +1295,7 @@ let rec constructor_side_effects e =
 		true
 	| TField (_,FEnum _) ->
 		false
-	| TUnop _ | TArray _ | TField _ | TEnumParameter _ | TCall _ | TNew _ | TFor _ | TWhile _ | TSwitch _ | TPatMatch _ | TReturn _ | TThrow _ ->
+	| TUnop _ | TArray _ | TField _ | TEnumParameter _ | TCall _ | TNew _ | TFor _ | TWhile _ | TSwitch _ | TPatMatch _ | TReturn _ | TThrow _ | TYield _ ->
 		true
 	| TBinop _ | TTry _ | TIf _ | TBlock _ | TVar _
 	| TFunction _ | TArrayDecl _ | TObjectDecl _

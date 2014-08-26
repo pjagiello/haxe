@@ -111,7 +111,7 @@ struct
 	let mk_heexpr = function
 		| TConst _ -> 0 | TLocal _ -> 1 | TArray _ -> 3 | TBinop _ -> 4 | TField _ -> 5 | TTypeExpr _ -> 7 | TParenthesis _ -> 8 | TObjectDecl _ -> 9
 		| TArrayDecl _ -> 10 | TCall _ -> 11 | TNew _ -> 12 | TUnop _ -> 13 | TFunction _ -> 14 | TVar _ -> 15 | TBlock _ -> 16 | TFor _ -> 17 | TIf _ -> 18 | TWhile _ -> 19
-		| TSwitch _ -> 20 | TPatMatch _ -> 21 | TTry _ -> 22 | TReturn _ -> 23 | TBreak -> 24 | TContinue -> 25 | TThrow _ -> 26 | TCast _ -> 27 | TMeta _ -> 28 | TEnumParameter _ -> 29
+		| TSwitch _ -> 20 | TPatMatch _ -> 21 | TTry _ -> 22 | TReturn _ -> 23 | TBreak -> 24 | TContinue -> 25 | TThrow _ -> 26 | TCast _ -> 27 | TMeta _ -> 28 | TEnumParameter _ -> 29 | TYield _ -> 30
 
 	let mk_heetype = function
 		| TMono _ -> 0 | TEnum _ -> 1 | TInst _ -> 2 | TType _ -> 3 | TFun _ -> 4
@@ -4909,6 +4909,8 @@ struct
 				{ expr with eexpr = TReturn(Option.map fn eopt) }
 			| TThrow (texpr) ->
 				{ expr with eexpr = TThrow(fn texpr) }
+			| TYield (texpr) ->
+				{ expr with eexpr = TYield(fn texpr) }
 			| TBreak
 			| TContinue
 			| TTry _
@@ -4980,6 +4982,7 @@ struct
 			| TContinue
 			| TIf _
 			| TThrow _ -> Statement
+			| TYield _ -> Statement (* ??? *)
 
 	and expr_kind expr =
 		match shallow_expr_type expr with
@@ -5081,7 +5084,7 @@ struct
 		match expr.eexpr, follow expr.etype with
 			| _, TEnum({ e_path = ([],"Void") },[])
 			| _, TAbstract ({ a_path = ([],"Void") },[])
-			| TThrow _, _ ->
+			| TThrow _, _ | TYield _, _ ->
 				add_statement expr;
 				null expr.etype expr.epos
 			| _ ->
@@ -5105,6 +5108,7 @@ struct
 			| TIf (cond,eif,eelse) ->
 				{ right with eexpr = TIf(cond, mk_get_block assign_fun eif, Option.map (mk_get_block assign_fun) eelse) }
 			| TThrow _
+			| TYield _
 			| TWhile _
 			| TFor _
 			| TReturn _
@@ -5267,6 +5271,7 @@ struct
 			Some( apply_assign (fun e ->
 				match e.eexpr with
 					| TThrow _ -> e
+					| TYield _ -> e
 					| _ when is_void e.etype ->
 							{ e with eexpr = TBlock([e; { e with eexpr = TReturn None }]) }
 					| _ ->
