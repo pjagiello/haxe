@@ -362,6 +362,50 @@ let gen_constant ctx p = function
 	| TThis -> spr ctx (this ctx)
 	| TSuper -> assert false
 
+(* dosc glupie funkcje ktore wykrywaja yield w drzewie i dodaja gwiazdke *)
+let rec has_yield e = 
+    match e.eexpr with
+        | TYield _ -> true
+        | TField (e,_) 
+        | TParenthesis e
+        | TUnop (_,_,e)
+        | TVar (_, Some e)
+        | TReturn (Some e)
+        | TThrow e
+        | TCast (e,_)
+        | TMeta (_,e)
+        | TEnumParameter (e,_,_) -> has_yield e
+        | TArray (e1,e2)
+        | TBinop (_,e1,e2)
+        | TFor(_,e1,e2) 
+        | TIf(e1,e2,None)
+        | TWhile (e1,e2,_) -> ((has_yield e1) || (has_yield e2)) 
+        | TIf(e1,e2, Some e3) -> ((has_yield e1) || (has_yield e2) || (has_yield e3)) 
+        | TArrayDecl l 
+        | TNew (_,_,l)
+        | TBlock l -> hy_list l
+        | TCall (e,l) -> ((has_yield e) || (hy_list l))
+        | TObjectDecl sl -> hy_list (List.map (fun (_,e) -> e) sl)
+        | TTry (e,vl) -> (has_yield e) || (hy_list (List.map (fun (_,e) -> e) vl))
+        | TSwitch (e1,lle,None) -> 
+                                    (let (ll,le) = List.split lle in
+                                    (has_yield e1) || (hy_list le) || (List.fold_left (fun acc l -> (acc || (hy_list l))) false ll) )
+        | TSwitch (e1,lle,Some e2) -> 
+                                    (let (ll,le) = List.split lle in
+                                    (has_yield e1) || (has_yield e2) || (hy_list le) || (List.fold_left (fun acc l -> (acc || (hy_list l))) false ll) )
+        | _ -> false
+        (*| TConst _ -> print_string "TConst false\n" ;false
+        | TLocal _ -> print_string "TLocal false\n" ;false
+        | TPatMatch _ -> print_string "TPatMatch false\n" ;false
+        | TBreak -> print_string "TBreak false\n" ;false
+        | TContinue -> print_string "TContinue false\n" ;false
+        | TTypeExpr _ -> print_string "TTypeExpr false\n" ;false
+        | TVar (tv, None) -> print_string "TVar false\n" ;false
+        | TReturn (None) -> print_string "TReturn false\n" ;false*)
+        (*| _ -> print_string "false false\n" ;false*)
+and hy_list l =  List.fold_left (||) false (List.map has_yield l)
+
+
 let rec gen_call ctx e el in_value =
 	match e.eexpr , el with
 	| TConst TSuper , params ->
@@ -547,7 +591,9 @@ and gen_expr ctx e =
 		let old = ctx.in_value, ctx.in_loop in
 		ctx.in_value <- None;
 		ctx.in_loop <- false;
-		print ctx "function(%s) " (String.concat "," (List.map ident (List.map arg_name f.tf_args)));
+		(if has_yield f.tf_expr then
+                    print ctx "function*(%s) " (String.concat "," (List.map ident (List.map arg_name f.tf_args)))
+                else print ctx "function(%s) " (String.concat "," (List.map ident (List.map arg_name f.tf_args))));
 		gen_expr ctx (fun_block ctx f e.epos);
 		ctx.in_value <- fst old;
 		ctx.in_loop <- snd old;
@@ -1243,8 +1289,6 @@ let generate com =
 			| _ -> ()
 		in loop parts "";
 	)) exposed;
-
-	(* print ctx "LOLOLOLOL" ; *)
 	
 	if ctx.js_modern then begin
 		(* Additional ES5 strict mode keywords. *)
@@ -1258,7 +1302,7 @@ let generate com =
 		);
 		print ctx "(function (";
 		if (anyExposed && not (Common.defined com Define.ShallowExpose)) then print ctx "$hx_exports";
-		print ctx ") { \"use strict\"";
+		print ctx ") { ";
 		newline ctx;
 		let rec print_obj f root = (
 			let path = root ^ "." ^ f.os_name in

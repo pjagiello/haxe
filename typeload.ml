@@ -1326,7 +1326,8 @@ let type_function ctx args ret fmode f do_display p =
 		match e.eexpr with
 		(* accept final throw (issue #1923) *)
 		| TThrow _ -> ()
-		| TBlock el when (match List.rev el with ({eexpr = TThrow _} :: _) -> true | _ -> false) -> ()
+		| TYield _ -> ()
+		| TBlock el when (match List.rev el with ({eexpr = TThrow _} :: _) | ({eexpr = TYield _} :: _) -> true | _ -> false) -> ()
 		| _ -> display_error ctx ("Missing return " ^ (s_type (print_context()) ret)) p);
 	let rec loop e =
 		match e.eexpr with
