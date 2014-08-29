@@ -4909,8 +4909,8 @@ struct
 				{ expr with eexpr = TReturn(Option.map fn eopt) }
 			| TThrow (texpr) ->
 				{ expr with eexpr = TThrow(fn texpr) }
-			| TYield (texpr) ->
-				{ expr with eexpr = TYield(fn texpr) }
+			| TYield (texpr,flag) ->
+				{ expr with eexpr = TYield(fn texpr, flag) }
 			| TBreak
 			| TContinue
 			| TTry _

@@ -3148,9 +3148,9 @@ and type_expr ctx (e,p) (with_type:with_type) =
 	| EThrow e ->
 		let e = type_expr ctx e Value in
 		mk (TThrow e) (mk_mono()) p
-	| EYield e -> (* ????????? *)
+	| EYield (e,f) -> (* ????????? *)
 		let e = type_expr ctx e Value in
-		mk (TYield e) (mk_mono()) p
+		mk (TYield (e,f)) (mk_mono()) p
 	| ECall (((EConst (Ident s),pc) as e),el) ->
 		(try
 			let en,t = (match with_type with

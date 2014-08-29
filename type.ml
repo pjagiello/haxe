@@ -127,7 +127,7 @@ and texpr_expr =
 	| TBreak
 	| TContinue
 	| TThrow of texpr
-	| TYield of texpr
+	| TYield of texpr * bool
 	| TCast of texpr * module_type option
 	| TMeta of metadata_entry * texpr
 	| TEnumParameter of texpr * tenum_field * int
@@ -920,8 +920,8 @@ let rec s_expr s_type e =
 		"Continue"
 	| TThrow e ->
 		"Throw " ^ (loop e)
-	| TYield e ->
-		"Yield " ^ (loop e)
+	| TYield (e,f) ->
+		(if f then "Yield* " ^ (loop e) else "Yield " ^ (loop e)) (* ??? *)
 	| TCast (e,t) ->
 		sprintf "Cast %s%s" (match t with None -> "" | Some t -> s_type_path (t_path t) ^ ": ") (loop e)
 	| TMeta ((n,el,_),e) ->
@@ -1001,8 +1001,8 @@ let rec s_expr_pretty tabs s_type e =
 		"continue"
 	| TThrow e ->
 		"throw " ^ (loop e)
-	| TYield e ->
-		"yield " ^ (loop e)
+	| TYield (e,f) ->
+                (if f then "yield* " ^ (loop e) else "yield " ^ (loop e))
 	| TCast (e,None) ->
 		sprintf "cast %s" (loop e)
 	| TCast (e,Some mt) ->
@@ -1624,7 +1624,7 @@ let iter f e =
 		f e1;
 		f e2;
 	| TThrow e
-	| TYield e
+	| TYield (e,_)
 	| TField (e,_)
 	| TEnumParameter (e,_,_)
 	| TParenthesis e
@@ -1700,8 +1700,8 @@ let map_expr f e =
 		{ e with eexpr = TWhile (e1,f e2,flag) }
 	| TThrow e1 ->
 		{ e with eexpr = TThrow (f e1) }
-	| TYield e1 ->
-		{ e with eexpr = TYield (f e1) }
+	| TYield (e1,flag) ->
+		{ e with eexpr = TYield ((f e1),flag) }
 	| TEnumParameter (e1,ef,i) ->
 		 { e with eexpr = TEnumParameter(f e1,ef,i) }
 	| TField (e1,v) ->
@@ -1776,8 +1776,8 @@ let map_expr_type f ft fv e =
 		{ e with eexpr = TWhile (e1,f e2,flag); etype = ft e.etype }
 	| TThrow e1 ->
 		{ e with eexpr = TThrow (f e1); etype = ft e.etype }
-	| TYield e1 ->
-		{ e with eexpr = TYield (f e1); etype = ft e.etype }
+	| TYield (e1,flag) ->
+		{ e with eexpr = TYield ((f e1),flag); etype = ft e.etype }
 	| TEnumParameter (e1,ef,i) ->
 		{ e with eexpr = TEnumParameter(f e1,ef,i); etype = ft e.etype }
 	| TField (e1,v) ->

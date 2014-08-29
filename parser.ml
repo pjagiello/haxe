@@ -414,8 +414,8 @@ let reify in_macro =
 			expr "EUntyped" [loop e]
 		| EThrow e ->
 			expr "EThrow" [loop e]
-		| EYield e ->
-			expr "EYield" [loop e]
+		| EYield (e,flag) ->
+			expr "EYield" [loop e; to_bool flag p]
 		| ECast (e,ct) ->
 			expr "ECast" [loop e; to_opt to_ctype ct p]
 		| EDisplay (e,flag) ->
@@ -1121,6 +1121,10 @@ and parse_macro_expr p = parser
 	| [< e = secure_expr >] ->
 		reify_expr e
 
+and parse_yield_continue p1 = parser
+        | [< '(Binop OpMult,p2); e = expr >] -> ((punion p1 p2),e,true)
+        | [< e = expr >] -> (p1,e,false)
+		
 and expr = parser
 	| [< (name,params,p) = parse_meta_entry; s >] ->
 		(try
@@ -1149,7 +1153,7 @@ and expr = parser
 			| [< >] -> serror())
 		| [< e = secure_expr >] -> expr_next (ECast (e,None),punion p1 (pos e)) s)
 	| [< '(Kwd Throw,p); e = expr >] -> (EThrow e,p)
-	| [< '(Kwd Yield,p); e = expr >] -> (EYield e,p)
+	| [< '(Kwd Yield,p1); (p,e,flag) = parse_yield_continue p1 >] -> (EYield (e,flag),p)
 	| [< '(Kwd New,p1); t = parse_type_path; '(POpen,p); s >] ->
 		if is_resuming p then display (EDisplayNew t,punion p1 p);
 		(match s with parser

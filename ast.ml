@@ -331,7 +331,7 @@ and expr_def =
 	| EContinue
 	| EUntyped of expr
 	| EThrow of expr
-	| EYield of expr
+	| EYield of expr * bool (* gwiazdka czy nie *)
 	| ECast of expr * complex_type option
 	| EDisplay of expr * bool
 	| EDisplayNew of type_path
@@ -714,7 +714,7 @@ let map_expr loop (e,p) =
 	| EContinue -> EContinue
 	| EUntyped e -> EUntyped (loop e)
 	| EThrow e -> EThrow (loop e)
-	| EYield e -> EYield (loop e)
+	| EYield (e,f)-> EYield (loop e,f)
 	| ECast (e,t) -> ECast (loop e,opt ctype t)
 	| EDisplay (e,f) -> EDisplay (loop e,f)
 	| EDisplayNew t -> EDisplayNew (tpath t)
