@@ -114,3 +114,8 @@ typedef Iterable<T> = {
 	The type parameter represent the type of the elements stored.
 **/
 extern interface ArrayAccess<T> { }
+
+/**
+        GENERATOR
+**/
+class Generator<T>{public function next():Dynamic{return 0;}}
