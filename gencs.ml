@@ -48,7 +48,7 @@ let rec is_cs_basic_type t =
 			true
 		| TAbstract _ when like_float t ->
 			true
-		| TAbstract({ a_impl = Some _ } as a,pl) ->
+		| TAbstract(a,pl) when not (Meta.has Meta.CoreType a.a_meta) ->
 			is_cs_basic_type (Codegen.Abstract.get_underlying_type a pl)
 		| TEnum(e, _) when not (Meta.has Meta.Class e.e_meta) -> true
 		| TInst(cl, _) when Meta.has Meta.Struct cl.cl_meta -> true
@@ -159,9 +159,9 @@ let is_string t =
 		| TInst( { cl_path = ([], "String") }, [] ) -> true
 		| _ -> false
 
-let change_md = function
-	| TAbstractDecl( { a_impl = Some impl } as a) when Meta.has Meta.Delegate a.a_meta ->
-		TClassDecl impl
+let rec change_md = function
+	| TAbstractDecl(a) when Meta.has Meta.Delegate a.a_meta && not (Meta.has Meta.CoreType a.a_meta) ->
+		change_md (t_to_md a.a_this)
 	| TClassDecl( { cl_kind = KAbstractImpl ({ a_this = TInst(impl,_) } as a) }) when Meta.has Meta.Delegate a.a_meta ->
 		TClassDecl impl
 	| md -> md
@@ -201,6 +201,10 @@ struct
 		let uint = match get_type gen ([], "UInt") with | TTypeDecl t -> TType(t, []) | TAbstractDecl a -> TAbstract(a, []) | _ -> assert false in
 
 		let is_var = alloc_var "__is__" t_dynamic in
+		let name () = match gen.gcurrent_class with
+			| Some cl -> path_s cl.cl_path
+			| _ -> ""
+		in
 
 		let rec run e =
 			match e.eexpr with
@@ -247,7 +251,7 @@ struct
 
 					let obj = run obj in
 					(match follow_module follow md with
-						| TAbstractDecl{ a_path = ([], "Float") } ->
+						| TAbstractDecl{ a_path = ([], "Float") } when name() <> "haxe.lang.Runtime" ->
 							(* on the special case of seeing if it is a Float, we need to test if both it is a float and if it is an Int *)
 							let mk_is local =
 								(* we check if it float or int or uint *)
@@ -258,7 +262,7 @@ struct
 							in
 							wrap_if_needed obj mk_is
 
-						| TAbstractDecl{ a_path = ([], "Int") } ->
+						| TAbstractDecl{ a_path = ([], "Int") } when name() <> "haxe.lang.Runtime" ->
 							(* int can be stored in double variable because of anonymous functions, check that case *)
 							let mk_isint_call local =
 								{
@@ -277,7 +281,7 @@ struct
 							in
 							wrap_if_needed obj mk_is
 
-						| TAbstractDecl{ a_path = ([], "UInt") } ->
+						| TAbstractDecl{ a_path = ([], "UInt") } when name() <> "haxe.lang.Runtime" ->
 							(* uint can be stored in double variable because of anonymous functions, check that case *)
 							let mk_isuint_call local =
 								{
@@ -395,6 +399,10 @@ struct
 		in
 
 		let is_cl t = match gen.greal_type t with | TInst ( { cl_path = (["System"], "Type") }, [] ) -> true | _ -> false in
+		let name () = match gen.gcurrent_class with
+			| Some cl -> path_s cl.cl_path
+			| _ -> ""
+		in
 
 		let rec run e =
 			match e.eexpr with
@@ -438,7 +446,7 @@ struct
 						etype = basic.tbool;
 						epos = e.epos
 					}
-				| TCast(expr, _) when is_int_float e.etype && not (is_int_float expr.etype) && not (is_null e.etype) ->
+				| TCast(expr, _) when is_int_float e.etype && not (is_cs_basic_type expr.etype) && not (is_null e.etype) && name() <> "haxe.lang.Runtime" ->
 					let needs_cast = match gen.gfollow#run_f e.etype with
 						| TInst _ -> false
 						| _ -> true
@@ -456,7 +464,7 @@ struct
 					} in
 
 					if needs_cast then mk_cast e.etype ret else ret
-				| TCast(expr, _) when (is_string e.etype) && (not (is_string expr.etype)) ->
+				| TCast(expr, _) when (is_string e.etype) && (not (is_string expr.etype)) && name() <> "haxe.lang.Runtime" ->
 					{ e with eexpr = TCall( mk_static_field_access_infer runtime_cl "toString" expr.epos [], [run expr] ) }
 				| TBinop( (Ast.OpNotEq as op), e1, e2)
 				| TBinop( (Ast.OpEq as op), e1, e2) when is_string e1.etype || is_string e2.etype ->
@@ -469,7 +477,7 @@ struct
 						}, [ run e1; run e2 ])
 					}
 
-				| TCast(expr, _) when is_tparam e.etype ->
+				| TCast(expr, _) when is_tparam e.etype && name() <> "haxe.lang.Runtime" ->
 					let static = mk_static_field_access_infer (runtime_cl) "genericCast" e.epos [e.etype] in
 					{ e with eexpr = TCall(static, [mk_local (alloc_var "$type_param" e.etype) expr.epos; run expr]); }
 
@@ -485,7 +493,7 @@ struct
 					}
 
 				| TBinop ( (Ast.OpEq as op), e1, e2 )
-				| TBinop ( (Ast.OpNotEq as op), e1, e2 ) when is_cl e1.etype ->
+				| TBinop ( (Ast.OpNotEq as op), e1, e2 ) when is_cl e1.etype && name() <> "haxe.lang.Runtime" ->
 					let static = mk_static_field_access_infer (runtime_cl) "typeEq" e.epos [] in
 					let ret = { e with eexpr = TCall(static, [run e1; run e2]); } in
 					if op = Ast.OpNotEq then
@@ -708,10 +716,8 @@ let configure gen =
 			| TAbstract ({ a_path = ([],"Int") },[])
 			| TType ({ t_path = [],"UInt" },[])
 			| TAbstract ({ a_path = [],"UInt" },[])
-			| TType ({ t_path = ["haxe";"_Int64"], "NativeInt64" },[])
-			| TAbstract ({ a_path = ["haxe";"_Int64"], "NativeInt64" },[])
-			| TType ({ t_path = ["haxe";"_Int64"], "NativeUInt64" },[])
-			| TAbstract ({ a_path = ["haxe";"_Int64"], "NativeUInt64" },[])
+			| TType ({ t_path = ["cs"], "Int64" },[])
+			| TAbstract ({ a_path = ["cs"], "Int64" },[])
 			| TType ({ t_path = ["cs"],"UInt64" },[])
 			| TAbstract ({ a_path = ["cs"],"UInt64" },[])
 			| TType ({ t_path = ["cs"],"UInt8" },[])
@@ -731,7 +737,7 @@ let configure gen =
 			| TType ({ t_path = [],"Single" },[])
 			| TAbstract ({ a_path = [],"Single" },[]) -> Some t
 			| TType ({ t_path = [],"Null" },[_]) -> Some t
-			| TAbstract ({ a_impl = Some _ } as a, pl) ->
+			| TAbstract (a, pl) when not (Meta.has Meta.CoreType a.a_meta) ->
 					Some (gen.gfollow#run_f ( Codegen.Abstract.get_underlying_type a pl) )
 			| TAbstract( { a_path = ([], "EnumValue") }, _	)
 			| TInst( { cl_path = ([], "EnumValue") }, _  ) -> Some t_dynamic
@@ -748,7 +754,7 @@ let configure gen =
 
 	let ifaces = Hashtbl.create 1 in
 
-	let ti64 = match ( get_type gen (["haxe";"_Int64"], "NativeInt64") ) with | TTypeDecl t -> TType(t,[]) | TAbstractDecl a -> TAbstract(a,[]) | _ -> assert false in
+	let ti64 = match ( get_type gen (["cs"], "Int64") ) with | TTypeDecl t -> TType(t,[]) | TAbstractDecl a -> TAbstract(a,[]) | _ -> assert false in
 
 	let ttype = get_cl ( get_type gen (["System"], "Type") ) in
 
@@ -762,7 +768,7 @@ let configure gen =
 	let rec real_type t =
 		let t = gen.gfollow#run_f t in
 		let ret = match t with
-			| TAbstract ({ a_impl = Some _ } as a, pl) ->
+			| TAbstract (a, pl) when not (Meta.has Meta.CoreType a.a_meta) ->
 				real_type (Codegen.Abstract.get_underlying_type a pl)
 			| TInst( { cl_path = (["haxe"], "Int32") }, [] ) -> gen.gcon.basic.tint
 			| TInst( { cl_path = (["haxe"], "Int64") }, [] ) -> ti64
@@ -864,10 +870,8 @@ let configure gen =
 			| TAbstract ({ a_path = ([],"Int") },[]) -> "int"
 			| TType ({ t_path = [],"UInt" },[])
 			| TAbstract ({ a_path = [],"UInt" },[]) -> "uint"
-			| TType ({ t_path = ["haxe";"_Int64"], "NativeInt64" },[])
-			| TAbstract ({ a_path = ["haxe";"_Int64"], "NativeInt64" },[]) -> "long"
-			| TType ({ t_path = ["haxe";"_Int64"], "NativeUInt64" },[])
-			| TAbstract ({ a_path = ["haxe";"_Int64"], "NativeUInt64" },[]) -> "ulong"
+			| TType ({ t_path = ["cs"], "Int64" },[])
+			| TAbstract ({ a_path = ["cs"], "Int64" },[]) -> "long"
 			| TType ({ t_path = ["cs"],"UInt64" },[])
 			| TAbstract ({ a_path = ["cs"],"UInt64" },[]) -> "ulong"
 			| TType ({ t_path = ["cs"],"UInt8" },[])
@@ -917,7 +921,7 @@ let configure gen =
 					| Statics _ | EnumStatics _ -> "System.Type"
 					| _ -> "object")
 			| TDynamic _ -> "object"
-			| TAbstract(a,pl) when a.a_impl <> None ->
+			| TAbstract(a,pl) when not (Meta.has Meta.CoreType a.a_meta) ->
 				t_s (Codegen.Abstract.get_underlying_type a pl)
 			(* No Lazy type nor Function type made. That's because function types will be at this point be converted into other types *)
 			| _ -> if !strict_mode then begin trace ("[ !TypeError " ^ (Type.s_type (Type.print_context()) t) ^ " ]"); assert false end else "[ !TypeError " ^ (Type.s_type (Type.print_context()) t) ^ " ]"
@@ -2275,7 +2279,8 @@ let configure gen =
 		(fun e ->
 			match real_type e.etype with
 				| TInst({ cl_path = (["haxe";"lang"], "Null") }, [t]) ->
-						{ (mk_field_access gen e "value" e.epos) with etype = t }
+					let e = { e with eexpr = TParenthesis(e) } in
+					{ (mk_field_access gen e "value" e.epos) with etype = t }
 				| _ ->
 					trace (debug_type e.etype); gen.gcon.error "This expression is not a Nullable expression" e.epos; assert false
 		)
@@ -2488,6 +2493,7 @@ let configure gen =
 				| TEnum({ e_path = ([], "Bool") }, [])
 				| TAbstract ({ a_path = ([], "Bool") },[]) -> Some t
 				| TAbstract _ when like_float t -> Some t
+				| t when is_cs_basic_type t -> Some t
 				| _ -> None )
 		| _ -> None
 	in
@@ -3265,11 +3271,9 @@ let convert_fun ctx p ret args =
 	let args = List.map (convert_fun_arg ctx p) args in
 	CTFunction(args, convert_signature ctx p ret)
 
-let get_clsname cpath =
-	match cpath with
-		| (_,[],n) -> netcl_to_hx n
-		| (_,nested,n) ->
-			String.concat "_" nested ^ "_" ^ netcl_to_hx n
+let get_clsname ctx cpath =
+	match netpath_to_hx ctx.nstd cpath with
+		| (_,n) -> n
 
 let convert_delegate ctx p ilcls =
 	let p = { p with pfile =	p.pfile ^" (abstract delegate)" } in
@@ -3295,7 +3299,7 @@ let convert_delegate ctx p ilcls =
 	let mk_op_fn op name p =
 		let fn_name = List.assoc op cs_binops in
 		let clsname = match ilcls.cpath with
-			| (ns,inner,n) -> get_clsname (ns,inner,"Delegate_"^n)
+			| (ns,inner,n) -> get_clsname ctx (ns,inner,"Delegate_"^n)
 		in
 		let expr = (ECall( (EField( (EConst(Ident (clsname)),p), fn_name ),p), [(EConst(Ident"arg1"),p);(EConst(Ident"arg2"),p)]),p) in
 		FFun {

@@ -3004,7 +3004,7 @@ struct
 				List.fold_left get_type_params acc ( tret :: List.map (fun (_,_,t) -> t) params )
 			| TDynamic t ->
 				(match t with | TDynamic _ -> acc | _ -> get_type_params acc t)
-			| TAbstract ({ a_impl = Some _ } as a, pl) ->
+			| TAbstract (a, pl) when not (Meta.has Meta.CoreType a.a_meta) ->
 					get_type_params acc ( Codegen.Abstract.get_underlying_type a pl)
 			| TAnon a ->
 				PMap.fold (fun cf acc -> get_type_params acc cf.cf_type) a.a_fields acc
@@ -6158,7 +6158,14 @@ struct
 						{ ecall with eexpr = TCall({ e1 with eexpr = TField(!ef, f) }, elist) }, elist
 					in
 					let new_ecall = if fparams <> [] then gen.gparam_func_call new_ecall { e1 with eexpr = TField(!ef, f) } fparams elist else new_ecall in
-					handle_cast gen new_ecall (gen.greal_type ecall.etype) (gen.greal_type ret_ft)
+					let ret = handle_cast gen new_ecall (gen.greal_type ecall.etype) (gen.greal_type ret_ft) in
+					(match gen.gcon.platform, cf.cf_params, ret.eexpr with
+						| _, _, TCast _ -> ret
+						| Java, _ :: _, _ ->
+							(* this is a workaround for a javac openjdk issue with unused type parameters and return type inference *)
+							(* see more at issue #3123 *)
+							mk_cast (gen.greal_type ret_ft) new_ecall
+						| _ -> ret)
 				end
 		| FClassField (cl,params,_,{ cf_kind = (Method MethDynamic | Var _) },_,actual_t,_) ->
 			(* if it's a var, we will just try to apply the class parameters that have been changed with greal_type_param *)
@@ -6323,7 +6330,7 @@ struct
 				| TArray(arr, idx) ->
 					let arr_etype = match follow arr.etype with
 					| (TInst _ as t) -> t
-					| TAbstract ({ a_impl = Some _ } as a, pl) ->
+					| TAbstract (a, pl) when not (Meta.has Meta.CoreType a.a_meta) ->
 						follow (Codegen.Abstract.get_underlying_type a pl)
 					| t -> t in
 					let idx = match gen.greal_type idx.etype with
@@ -9247,6 +9254,11 @@ struct
 
 	let priority = solve_deps name []
 
+	let rec simplify_expr e = match e.eexpr with
+		| TParenthesis e
+		| TMeta(_,e) -> simplify_expr e
+		| _ -> e
+
 	let traverse gen (should_convert:texpr->bool) (handle_nullables:bool) =
 		let basic = gen.gcon.basic in
 		let rec run e =
@@ -9315,6 +9327,27 @@ struct
 						with | Exit ->
 							{ e with eexpr = TBlock [] }
 					end
+				| TSwitch(cond,cases,default) -> (try
+					match (simplify_expr cond).eexpr with
+						| TCall( { eexpr = TField(_,FStatic({ cl_path = [],"Type" }, { cf_name = "enumIndex" })) }, [enum] ) ->
+							let real_enum = match enum.etype with
+								| TEnum(e,_) -> e
+								| _ -> raise Not_found
+							in
+							if Meta.has Meta.Class real_enum.e_meta then raise Not_found;
+							let enum_expr = mk_mt_access (TEnumDecl(real_enum)) e.epos in
+							let fields = Hashtbl.create (List.length real_enum.e_names) in
+							PMap.iter (fun _ ef -> Hashtbl.add fields ef.ef_index ef) real_enum.e_constrs;
+							let cases = List.map (fun (el,e) ->
+								List.map (fun e -> match e.eexpr with
+								| TConst(TInt i) ->
+									let ef = Hashtbl.find fields (Int32.to_int i) in
+									{ e with eexpr = TField(enum_expr, FEnum(real_enum,ef)); etype = TEnum(real_enum,List.map (fun _ -> t_dynamic) real_enum.e_types) }
+								| _ -> raise Not_found) el, e
+							) cases in
+							{ e with eexpr = TSwitch(enum,cases,default) }
+						| _ -> raise Not_found
+					with Not_found -> Type.map_expr run e)
 				| _ -> Type.map_expr run e
 		in
 		run
@@ -9445,6 +9478,14 @@ struct
 			| _ -> None
 
 	let traverse gen unwrap_null wrap_val null_to_dynamic has_value opeq_handler handle_opeq handle_cast =
+		(* let unwrap_null e = *)
+		(* 	let ret = unwrap_null e in *)
+		(* 	{ ret with eexpr = TParenthesis(ret) } *)
+		(* in *)
+		(* let wrap_val e t b = *)
+		(* 	let ret = wrap_val e t b in *)
+		(* 	{ ret with eexpr = TParenthesis(ret) } *)
+		(* in *)
 		let handle_unwrap to_t e =
 			let e_null_t = get (is_null_t gen e.etype) in
 			match gen.greal_type to_t with
