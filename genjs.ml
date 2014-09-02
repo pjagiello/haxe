@@ -673,7 +673,7 @@ and gen_expr ctx e =
 	| TFor (v,it,e) ->
 		check_var_declaration v;
 		let handle_break = handle_break ctx e in
-		let it = ident (match it.eexpr with
+		let it_s = ident (match it.eexpr with
 			| TLocal v -> v.v_name
 			| _ ->
 				let id = ctx.id_counter in
@@ -684,10 +684,24 @@ and gen_expr ctx e =
 				newline ctx;
 				name
 		) in
-		print ctx "while( %s.hasNext() ) {" it;
+		let generate_for =
+		(match it.etype with
+                    | TInst (cl,par) when (let (_,s) = cl.cl_path in (s = "Generator" && List.length par == 1)) ->
+                        true
+                    | _ -> false) in
+                
+                (if generate_for then
+                    print ctx "for(var %s of %s){" (ident v.v_name) it_s
+                else
+                    print ctx "while( %s.hasNext() ) {" it_s
+                );
+		
 		let bend = open_block ctx in
-		newline ctx;
-		print ctx "var %s = %s.next()" (ident v.v_name) it;
+
+		(if not generate_for then
+                    (newline ctx;
+                    print ctx "var %s = %s.next()" (ident v.v_name) it_s));
+		
 		gen_block_element ctx e;
 		bend();
 		newline ctx;

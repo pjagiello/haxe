@@ -118,4 +118,4 @@ extern interface ArrayAccess<T> { }
 /**
         GENERATOR
 **/
-class Generator<T>{public function next():Dynamic{return 0;}}
+class Generator<T>{public function next():Dynamic{return 0;} public function hasNext(){return false;}}
