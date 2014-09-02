@@ -118,4 +118,12 @@ extern interface ArrayAccess<T> { }
 /**
         GENERATOR
 **/
-class Generator<T>{public function next():Dynamic{return 0;} public function hasNext(){return false;}}
+class Generator<T>
+{
+    public function next():Dynamic{return 0;}
+    public function hasNext(){return false;}
+    public function new()
+    {
+        throw "nie wolno tworzyc obiektu Generator";
+    }
+}
