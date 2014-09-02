@@ -2977,7 +2977,9 @@ and type_expr ctx (e,p) (with_type:with_type) =
 					e1
 				| TLazy _ ->
 					assert false
-				| _ ->
+                                | TInst (cl,par) as generator_type when (let (_,s) = cl.cl_path in (s = "Generator" && List.length par == 1)) ->
+                                        mk e1.eexpr generator_type e1.epos
+				| _ -> 
 					(try
 						unify_raise ctx e1.etype t e1.epos;
 						Codegen.Abstract.check_cast ctx t e1 p
