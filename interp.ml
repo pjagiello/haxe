@@ -3895,6 +3895,8 @@ and encode_expr e =
 				28, [loop e; encode_ctype t]
 			| EMeta (m,e) ->
 				29, [encode_meta_entry m;loop e]
+			| EYield (e,flag) ->
+                                30, [loop e; VBool flag]
 		in
 		enc_obj [
 			"pos", encode_pos p;
@@ -4582,6 +4584,7 @@ and encode_texpr e =
 			| TCast(e1,mt) -> 25,[loop e1;match mt with None -> VNull | Some mt -> encode_module_type mt]
 			| TMeta(m,e1) -> 26,[encode_meta_entry m;loop e1]
 			| TEnumParameter(e1,ef,i) -> 27,[loop e1;encode_efield ef;VInt i]
+			| TYield (e,flag) -> 28, [loop e; VBool flag]
 		in
 		enc_obj [
 			"pos", encode_pos e.epos;
@@ -4969,6 +4972,7 @@ let rec make_ast e =
 	| TBreak -> EBreak
 	| TContinue -> EContinue
 	| TThrow e -> EThrow (make_ast e)
+	| TYield (e,flag) -> EYield (make_ast e, flag)
 	| TCast (e,t) ->
 		let t = (match t with
 			| None -> None
