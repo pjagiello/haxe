@@ -1326,6 +1326,7 @@ let type_function ctx args ret fmode f do_display p =
 	else (try type_eq EqStrict ret ctx.t.tvoid with Unify_error _ ->
 		match e.eexpr with
 		(* accept final throw (issue #1923) *)
+		| _ when is_generator ctx.ret -> () (* jesli typ zwracany to generator, ignorujemy brak return/yield/throw *)  
 		| TThrow _ -> ()
 		| TYield _ -> ()
 		| TBlock el when (match List.rev el with ({eexpr = TThrow _} :: _) | ({eexpr = TYield _} :: _) -> true | _ -> false) -> ()

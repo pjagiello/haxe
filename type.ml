@@ -316,6 +316,11 @@ and decision_tree = {
 
 (* ======= General utility ======= *)
 
+let is_generator t =
+    (match t with
+        | TInst (cl,par) when (let (_,s) = cl.cl_path in (s = "Generator" && List.length par == 1)) -> true
+        | _ -> false )
+
 let alloc_var =
 	let uid = ref 0 in
 	(fun n t -> incr uid; { v_name = n; v_type = t; v_id = !uid; v_capture = false; v_extra = None; v_meta = [] })

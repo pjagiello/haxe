@@ -2983,7 +2983,7 @@ and type_expr ctx (e,p) (with_type:with_type) =
 					e1
 				| TLazy _ ->
 					assert false
-                                | TInst (cl,par) as generator_type when (let (_,s) = cl.cl_path in (s = "Generator" && List.length par == 1)) ->
+                                | TInst _ as generator_type when is_generator generator_type ->
                                         mk e1.eexpr generator_type e1.epos
 				| _ -> 
 					(try

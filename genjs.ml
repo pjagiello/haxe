@@ -363,7 +363,8 @@ let gen_constant ctx p = function
 	| TSuper -> assert false
 
 (* dosc glupie funkcje ktore wykrywaja yield w drzewie i dodaja gwiazdke *)
-let rec has_yield e = 
+(* JUZ NIEUZYWANE *)
+(*let rec has_yield e = 
     match e.eexpr with
         | TYield _ -> true
         | TField (e,_) 
@@ -403,7 +404,7 @@ let rec has_yield e =
         | TVar (tv, None) -> print_string "TVar false\n" ;false
         | TReturn (None) -> print_string "TReturn false\n" ;false*)
         (*| _ -> print_string "false false\n" ;false*)
-and hy_list l =  List.fold_left (||) false (List.map has_yield l)
+and hy_list l =  List.fold_left (||) false (List.map has_yield l) *)
 
 
 let rec gen_call ctx e el in_value =
@@ -597,7 +598,8 @@ and gen_expr ctx e =
 		let old = ctx.in_value, ctx.in_loop in
 		ctx.in_value <- None;
 		ctx.in_loop <- false;
-		(if has_yield f.tf_expr then
+		
+		(if is_generator f.tf_type then
                     print ctx "function*(%s) " (String.concat "," (List.map ident (List.map arg_name f.tf_args)))
                 else print ctx "function(%s) " (String.concat "," (List.map ident (List.map arg_name f.tf_args))));
 		gen_expr ctx (fun_block ctx f e.epos);
@@ -684,12 +686,7 @@ and gen_expr ctx e =
 				newline ctx;
 				name
 		) in
-		let generate_for =
-		(match it.etype with
-                    | TInst (cl,par) when (let (_,s) = cl.cl_path in (s = "Generator" && List.length par == 1)) ->
-                        true
-                    | _ -> false) in
-                
+		let generate_for = is_generator it.etype in
                 (if generate_for then
                     print ctx "for(var %s of %s){" (ident v.v_name) it_s
                 else
