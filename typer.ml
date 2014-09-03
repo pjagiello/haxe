@@ -3164,15 +3164,12 @@ and type_expr ctx (e,p) (with_type:with_type) =
 		mk (TThrow e) (mk_mono()) p
 	| EYield (e,f) -> 
                 let e = type_expr ctx e (WithType ctx.ret) in
+                let isgen = is_generator_aux ctx.ret in
                 let type_to_unify = 
-                (match ctx.ret with
-                    | TInst (cl,par) ->
-                        let (_,s) = cl.cl_path in
-                            if s <> "Generator" then display_error ctx "Funkcja, w ktorej uzyto yield, musi zwracac typ Generator<...>" p;
-                            if List.length par <> 1 then  display_error ctx "Generator ma za duzo parametrow typu (to totalnie nie powinno sie zdarzyc!!!)" p;
-                            (if f then ctx.ret else List.hd par) (* jesli z gwiazdka, to unifikujemy bezposrednio, jesli nie to z tym co jest w srodku Generator *)
-                    | _ -> error "Funkcja, w ktorej uzyto yield, musi zwracac typ Generator<...>" p
-                ) in
+                (match isgen with
+                    | Some x ->  (if f then ctx.ret else x) (* jesli z gwiazdka, to unifikujemy bezposrednio, jesli nie to z tym co jest w srodku Generator *)
+                    | None -> error "Funkcja, w ktorej uzyto yield, musi zwracac typ Generator<...>" p )
+                in
                 unify ctx e.etype type_to_unify e.epos;
                 let e = Codegen.Abstract.check_cast ctx type_to_unify e p in
                 mk (TYield (e,f)) t_dynamic p

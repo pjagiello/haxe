@@ -316,11 +316,6 @@ and decision_tree = {
 
 (* ======= General utility ======= *)
 
-let is_generator t =
-    (match t with
-        | TInst (cl,par) when (let (_,s) = cl.cl_path in (s = "Generator" && List.length par == 1)) -> true
-        | _ -> false )
-
 let alloc_var =
 	let uid = ref 0 in
 	(fun n t -> incr uid; { v_name = n; v_type = t; v_id = !uid; v_capture = false; v_extra = None; v_meta = [] })
@@ -1890,3 +1885,20 @@ let find_array_access a pl t1 t2 is_set =
 			| _ -> loop cfl
 	in
 	loop a.a_array
+
+(* ======= rzeczy z generatorami ======= *)	
+	
+let rec is_generator_aux t =    (* zwraca albo typ w srodku generatora albo None jesli to nie generator *)
+    (match t with
+        | TInst (cl,par) when (let (_,s) = cl.cl_path in (s = "Generator" && List.length par == 1)) -> Some (List.hd par)
+        | TType (td,_) -> is_generator_aux td.t_type
+        | TMono tt ->  (match (!tt) with Some ttt -> is_generator_aux ttt | None -> None)
+        | _ -> None )
+
+let is_generator t =
+    (match is_generator_aux t with
+        | Some _ -> true
+        | None -> false)
+        
+
+    

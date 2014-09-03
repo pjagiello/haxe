@@ -1,3 +1,5 @@
+typedef Genint = Generator<Int>;
+
 class AAA{
     var x : Int;
     public function new(x)
@@ -75,7 +77,11 @@ class HelloWorld {
     {
         
     }
-    //static private function noReturn() : String {}
+    static private function test2() : Genint
+    {
+        yield 0;
+    }
+    static private function noReturn() : String {}
     static private function eee()
     {
         function ghijk(i)
@@ -148,6 +154,10 @@ class HelloWorld {
         trace("===================");
         var ttt:Generator<Int> = test();
         trace(ttt.next().done);
+        
+        trace("===================");
+        var ttt2:Genint = test2();
+        trace(ttt2.next().value);
         
     }
 }
