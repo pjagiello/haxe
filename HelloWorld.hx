@@ -1,7 +1,7 @@
-typedef Genint = Generator<Int>;
+import Hello2;
 
 class AAA{
-    var x : Int;
+    public var x : Int;
     public function new(x)
     {
         this.x=x;
@@ -81,7 +81,7 @@ class HelloWorld {
     {
         yield 0;
     }
-    static private function noReturn() : String {}
+    //static private function noReturn() : String { yield "AAA";}
     static private function eee()
     {
         function ghijk(i)
@@ -125,9 +125,10 @@ class HelloWorld {
         
         trace("===================");
         var objs:Generator<AAA> = xxx();
-        trace(objs.next().value.x);
-        trace(objs.next().value.x);
-        trace(objs.next().value.x);
+        for(v in objs)
+        {
+            trace(v.x);
+        }
         
         trace("===================");
         var g = numbers();
@@ -158,6 +159,13 @@ class HelloWorld {
         trace("===================");
         var ttt2:Genint = test2();
         trace(ttt2.next().value);
+        
+        trace("===================");
+        var gg:Gengen = Hello2.genn();
+        for( g in gg)
+        {
+            for( v in g)trace(v);
+        }
         
     }
 }

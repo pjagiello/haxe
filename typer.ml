@@ -2984,6 +2984,7 @@ and type_expr ctx (e,p) (with_type:with_type) =
 				| TLazy _ ->
 					assert false
                                 | TInst _ as generator_type when is_generator generator_type ->
+                                        i.v_type <- (match is_generator_aux generator_type with Some x -> x | None -> i.v_type); (* podmieniamy typ na ten ze srodka generatora *)
                                         mk e1.eexpr generator_type e1.epos
 				| _ -> 
 					(try
